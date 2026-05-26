@@ -35,67 +35,65 @@ class Recipe:
     def __eq__(self, other):
         if not isinstance(other, Recipe):
             return False
-        
         return self.title == other.title and self.time == other.time
     
     def __hash__(self):
-        return hash((self.title, self.time))
+        return hash((self.title, self.time)) # проверить 
 
 
-def load_recipes():
-    recipes = []
-    if os.path.exists('recipes.json'):
-        try:
-            with open('recipes.json', 'r', encoding='utf-8') as raw_data:
-                load_json_recipes = json.load(raw_data)
-                for recipe in load_json_recipes:
-                    recipe1 = Recipe(**recipe)
-                    recipes.append(recipe1)
-        except json.JSONDecodeError:
-            print('Битый json')
-    return recipes
-recipes = load_recipes()
+class RecipeBook:
+    _recipes_storage = []
 
+    @classmethod
+    def load_recipes(cls):
+        if os.path.exists('recipes.json'):
+            try:
+                with open('recipes.json', 'r', encoding='utf-8') as raw_data:
+                    load_json_recipes = json.load(raw_data)
+                    for recipe in load_json_recipes:
+                        recipe1 = Recipe(**recipe)
+                        cls._recipes_storage.append(recipe1)
+            except json.JSONDecodeError:
+                print('Битый json')
 
-def create_recipe(recipe: Recipe):
-
+    @classmethod
+    def create_recipe(cls, recipe: Recipe):
     # Валидация
-    if not recipe.title.strip(): # if not True = False / if not False = True
-        raise InvalidRecipeError
-    if recipe.time <= 0:
-        raise InvalidCookingTimeError
+        if not recipe.title.strip():
+            raise InvalidRecipeError
+        if recipe.time <= 0:
+            raise InvalidCookingTimeError
+        
+        # Определение ID рецепта
+        if cls._recipes_storage:
+            recipe.id = cls._recipes_storage[-1].id + 1
+        else:
+            recipe.id = 1
+
+        # Добавление в локальный список рецептов
+        cls._recipes_storage.append(recipe)
+
+        # Превращаем список объектов класса в список в словарей
+        recipes_to_json = []
+        for r in cls._recipes_storage:
+            recipes_to_json.append(r.__dict__)
+        with open('recipes.json', 'w', encoding='utf-8') as f:
+            json.dump(recipes_to_json, f, ensure_ascii=False, indent=4)
+        
+        print(f'Рецепт "{recipe.title}" успешно сохранен!')
     
-    # Определение ID рецепта
-    if recipes:
-        recipe.id = recipes[-1].id + 1
-    else:
-        recipe.id = 1
+    @classmethod
+    def get_recipe_by_id(cls, target_id: int):
+        for recipe in cls._recipes_storage:
+            if recipe.id == target_id:
+                print('Рецепт найден')
+                return recipe
+        raise RecipeNotFoundError(f'ID {target_id} не существует')
 
-    # Добавление в локальный список рецептов
-    recipes.append(recipe)
-
-    # Превращаем список объектов класса в список в словарей
-    recipes_to_json = []
-    for r in recipes:
-        recipes_to_json.append(r.__dict__)
-    with open('recipes.json', 'w', encoding='utf-8') as f:
-        json.dump(recipes_to_json, f, ensure_ascii=False, indent=4)
-    
-    print(f'Рецепт "{recipe.title}" успешно сохранен!')
-
-
-def get_recipe_by_id(target_id: int):
-    for recipe in recipes:
-        if recipe.id == target_id:
-            print('Рецепт найден')
-            return recipe
-    raise RecipeNotFoundError(f'ID {target_id} не существует')
-
-
-def filter_by_time(max_time: int):
-    approve_recipes = []
-    for recipe in recipes:
-        if recipe.time <= max_time:
-            approve_recipes.append(recipe)
-    return approve_recipes
-    
+    @classmethod
+    def filter_by_time(cls, max_time: int):
+        approve_recipes = []
+        for recipe in cls._recipes_storage:
+            if recipe.time <= max_time:
+                approve_recipes.append(recipe)
+        return approve_recipes
